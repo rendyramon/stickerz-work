@@ -40,8 +40,10 @@
                 :auto-upload="false"
                 :on-change="handleTrayPreview"
               >
-                <img v-if="tempTrayImage" :src="tempTrayImage" class="avatar">
-                <div v-else style="width: 100%;height: 100%">
+                <div v-if="tempTrayImage" class="full-width">
+                  <img :src="tempTrayImage" class="avatar">
+                </div>
+                <div v-else class="full-width">
                   <i class="el-icon-plus avatar-uploader-icon"></i>
                 </div>
               </el-upload>
@@ -88,8 +90,33 @@ export default {
     };
   },
   methods: {
+    crop(img, size) {
+      let canvas = document.createElement("canvas");
+      let ctx = canvas.getContext("2d");
+      canvas.height = size;
+      canvas.width = size;
+      let scale = Math.min(size / img.width, size / img.height);
+      let x = size / 2 - (img.width / 2) * scale;
+      let y = size / 2 - (img.height / 2) * scale;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      return canvas;
+    },
     handleTrayPreview(file) {
-      this.tempTrayImage = URL.createObjectURL(file.raw);
+      let reader = new FileReader();
+      reader.readAsDataURL(file.raw);
+      reader.onloadend = () => {
+        let img = new Image();
+        img.src = reader.result;
+        img.onload = () => {
+          this.tempTrayImage = this.crop(img, 512).toDataURL(
+            "image/webp",
+            0.75
+          );
+          this.stickerPack.tray_image = this.crop(img, 96)
+            .toDataURL("image/png")
+            .replace("data:image/png;base64,", "");
+        };
+      };
     },
     handleStickers(file, fileList) {
       this.stickers = fileList;
@@ -103,7 +130,7 @@ export default {
         this.stickerPack.name &&
         this.stickerPack.publisher &&
         this.stickerPack.identifier &&
-        this.tempTrayImage
+        this.trayImage != null
       );
     }
   }
@@ -142,7 +169,10 @@ export default {
 }
 .avatar {
   width: 100%;
-  padding-bottom: 100%;
   display: block;
+}
+.full-width {
+  width: auto;
+  padding-bottom: 100%;
 }
 </style>
