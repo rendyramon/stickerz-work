@@ -40,10 +40,10 @@
                 :auto-upload="false"
                 :on-change="handleTrayPreview"
               >
-                <div v-if="tempTrayImage" class="full-width">
+                <div v-if="tempTrayImage">
                   <img :src="tempTrayImage" class="avatar">
                 </div>
-                <div v-else class="full-width">
+                <div v-else>
                   <i class="el-icon-plus avatar-uploader-icon"></i>
                 </div>
               </el-upload>
@@ -57,15 +57,21 @@
               action
               :auto-upload="false"
               :on-change="handleStickers"
-              list-type="picture-card"
               :limit="30"
+              list-type="picture-card"
               multiple
             >
               <i class="el-icon-plus"></i>
             </el-upload>
           </el-form-item>
           <el-form-item>
-            <el-button :disabled="!isComplete" type="primary" style="width: 100%;">生成JSON檔案</el-button>
+            <el-button
+              :loading="isLoading"
+              :disabled="!isComplete"
+              type="primary"
+              style="width: 100%;"
+              @click="generateJSON"
+            >生成JSON檔案</el-button>
           </el-form-item>
         </el-row>
       </el-form>
@@ -74,10 +80,12 @@
 </template>
 
 <script>
+// import FileSaver from "file-saver";
 export default {
   name: "app",
   data() {
     return {
+      isLoading: false,
       stickers: [],
       tempTrayImage: "",
       stickerPack: {
@@ -118,20 +126,52 @@ export default {
         };
       };
     },
+    handleStickerObject(file) {
+      let reader = new FileReader();
+      reader.readAsDataURL(file.raw);
+      reader.onloadend = () => {
+        let img = new Image();
+        img.src = reader.result;
+        img.onload = () => {
+          let tmpImg = this.crop(img, 512)
+            .toDataURL("image/webp", 0.75)
+            .replace("data:image/webp;base64,", "");
+          this.stickerPack.stickers.push({
+            image_data: tmpImg
+          });
+        };
+      };
+    },
     handleStickers(file, fileList) {
       this.stickers = fileList;
+    },
+    generateJSON() {
+      this.isLoading = true;
+      this.stickerPack.stickers.slice(0, this.stickerPack.stickers.length);
+      this.stickers.forEach(item => {
+        this.handleStickerObject(item);
+      });
+
+      // let JSONstring = JSON.stringify(this.stickerPack);
+      // let blob = new Blob([JSONstring], {
+      //   type: "text/json;charset=utf-8"
+      // });
+      // FileSaver.saveAs(blob, `${this.stickerPack.identifier}.json`);
+      this.isLoading = false;
     }
   },
   computed: {
     isComplete() {
-      return (
+      if (
+        this.stickerPack.tray_image &&
         this.stickers.length >= 3 &&
         this.stickers.length <= 30 &&
         this.stickerPack.name &&
         this.stickerPack.publisher &&
-        this.stickerPack.identifier &&
-        this.trayImage != null
-      );
+        this.stickerPack.identifier
+      )
+        return true;
+      else return false;
     }
   }
 };
@@ -170,9 +210,5 @@ export default {
 .avatar {
   width: 100%;
   display: block;
-}
-.full-width {
-  width: auto;
-  padding-bottom: 100%;
 }
 </style>
